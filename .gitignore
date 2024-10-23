@@ -1,0 +1,4 @@
+*.bak
+clab-example.workstations/*
+*.key
+/clab-example.workstation
