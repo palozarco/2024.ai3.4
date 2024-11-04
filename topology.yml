@@ -11,9 +11,42 @@ topology:
     workstation2:
       kind: linux
       image: alpine:latest
+      exec:
+        - apk update
+        - apk add iproute2 openrc openssh rsyslog
+        - echo "export HISTFILE=/dev/null"
+        - mkdir -p /run/openrc
+        - touch /run/openrc/softlevel
+        - rc-service rsyslog start
+        - rc-update add rsyslog
+        - # missing config adam will add
+        - rc-status -a
+        - rc-service sshd start
+        - rc-update add sshd
+        - rc-status -a
+      ports:
+        - "2222:22/tcp"
+
+
+
+    openvswitch:
+      kind: linux 
       labels:
-        graph-icon: host
-        graph-layer: 2
+        graph-layer: 1   # Assign the switch layer clearly
+        graph-icon: switch
+      image: alpine
+      exec: 
+        - apk update
+        - apk add bash openvswitch
+        - mkdir -p /var/run/openvswitch  # Ensure the directory for OVS sockets and PID exists
+        - mkdir -p /etc/openvswitch      # Ensure the directory for OVS configuration files exists
+        - ovsdb-tool create /etc/openvswitch/conf.db /usr/share/openvswitch/vswitch.ovsschema
+        - ovsdb-server --remote=punix:/var/run/openvswitch/db.sock --remote=db:Open_vSwitch,Open_vSwitch,manager_options --pidfile --detach
+        - ovs-vswitchd --pidfile --detach
+        - ovs-vsctl add-br br0           # Add OVS bridge br0
+        - ovs-vsctl add-port br0 eth1    # Add eth1 to the bridge
+        - ovs-vsctl add-port br0 eth2    # Add eth2 to the bridge
 
   links: 
-    - endpoints: ['workstation1:eth1', "workstation2:eth1"]
+    - endpoints: ['workstation1:eth1', "openvswitch:eth1"]
+    - endpoints: ['workstation2:eth1', "openvswitch:eth2"]
